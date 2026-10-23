@@ -298,6 +298,11 @@ kbd {
   box-shadow: var(--shadow);
   animation: toast 2s ease forwards;
 }
+.toast.wide {
+  font-size: 22px;
+  white-space: nowrap;
+  animation-duration: 3.2s;
+}
 @keyframes toast {
   0% {
     opacity: 0;
@@ -383,6 +388,12 @@ kbd {
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0.01em;
+}
+.logo .tess {
+  width: 1.05em;
+  height: 1.05em;
+  vertical-align: -0.16em;
+  margin-right: 0.08em;
 }
 .logo span {
   display: inline-block;
@@ -783,14 +794,104 @@ input[type='range'] {
 }
 
 /* Phones in portrait: panels on top, controls below the board. */
-body.touch #legend {
+body.touch #legend,
+body.touch .label kbd,
+body.touch .dim-card kbd {
   display: none;
+}
+@media (max-width: 600px) {
+  .card {
+    padding: 18px 14px;
+    border-radius: 26px;
+  }
+  .tagline {
+    font-size: 15px;
+    margin-bottom: 14px;
+  }
+  .dims {
+    gap: 10px;
+  }
+  .dim-card {
+    padding: 10px 8px;
+  }
+  .dim-card .big {
+    font-size: 34px;
+  }
+  .dim-card .desc {
+    font-size: 12px;
+  }
+  .seg button {
+    padding: 6px 10px;
+    font-size: 14px;
+  }
+  .row {
+    margin-top: 12px;
+  }
+}
+@media (orientation: landscape) {
+  body.touch #hud {
+    --side-l: 170px;
+    --side-r: 170px;
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  body.touch .box {
+    padding: 5px 8px;
+    border-radius: 14px;
+  }
+  body.touch .mode-tag,
+  body.touch .stat:nth-child(n + 3) {
+    display: none;
+  }
+  body.touch .panel.left {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+  body.touch .panel.left .box:first-child {
+    width: 66px;
+    flex: none;
+  }
+  body.touch .panel.left .stats {
+    flex: 1;
+  }
+  body.touch .label {
+    font-size: 10px;
+  }
+  body.touch .slot,
+  body.touch #nextSlots .slot,
+  body.touch #nextSlots .slot:first-child {
+    height: 46px;
+  }
+  body.touch #nextSlots .slot:nth-child(n + 3) {
+    display: none;
+  }
+  body.touch .stat b,
+  body.touch .stat:first-child b {
+    font-size: 16px;
+  }
+  body.touch #btnPause {
+    position: absolute;
+    top: 8px;
+    right: 186px;
+    padding: 5px 12px;
+  }
+  body.touch .tbtn {
+    width: 50px;
+    height: 50px;
+    border-radius: 15px;
+  }
+  body.touch .tbtn.wide {
+    width: 106px;
+  }
+  body.touch #touch {
+    padding: 6px;
+  }
 }
 @media (orientation: portrait) {
   body.touch #hud {
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto 1fr;
-    padding: calc(8px + env(safe-area-inset-top)) 8px 8px;
+    padding: calc(8px + env(safe-area-inset-top)) 8px calc(var(--touch-h, 0px) + 4px);
     gap: 8px;
   }
   body.touch #board {

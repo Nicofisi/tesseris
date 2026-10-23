@@ -2,7 +2,8 @@
 // the ghost and the effects. In 4D/5D there is one WellView per (w, v) slice.
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { PALETTE, blockGeometry } from './assets.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { PALETTE, LAYER_PALETTE, blockGeometry } from './assets.js';
 import { Particles } from './particles.js';
 
 const tmpM = new THREE.Matrix4();
@@ -83,17 +84,17 @@ export function createWellShared() {
   });
   const wood = new THREE.MeshStandardMaterial({ color: '#c98a5b', roughness: 0.8 });
   const woodActive = new THREE.MeshStandardMaterial({ color: '#ffd27a', roughness: 0.5, emissive: '#ffb347', emissiveIntensity: 0.65 });
-  const grass = new THREE.MeshStandardMaterial({ color: '#8fd46b', roughness: 0.95 });
-  const dirt = new THREE.MeshStandardMaterial({ color: '#c89468', roughness: 1, flatShading: true });
-  const dirtDark = new THREE.MeshStandardMaterial({ color: '#a8724f', roughness: 1, flatShading: true });
+  const island = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 });
   const lines = new THREE.LineBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.22, depthWrite: false });
   const glass = new THREE.MeshBasicMaterial({ color: '#dff6ff', transparent: true, opacity: 0.08, depthWrite: false, side: THREE.DoubleSide });
   const flower = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7 });
-  return { blockMat, pieceMat, ghostMat, flashMat, beamMat, wood, woodActive, grass, dirt, dirtDark, lines, glass, flower };
+  return { blockMat, pieceMat, ghostMat, flashMat, beamMat, wood, woodActive, island, lines, glass, flower };
 }
 
 export class WellView {
-  constructor({ game, wellCoords, shared, seed = 1 }) {
+  constructor({ game, wellCoords, shared, seed = 1, lite = false, layerColors = false }) {
+    this.lite = lite;
+    this.layerColors = layerColors;
     this.game = game;
     this.wellCoords = wellCoords; // values for game.wellAxes
     this.dim = game.dim;
@@ -186,53 +187,61 @@ export class WellView {
     let r = seed * 9301 + 49297;
     const rand = () => ((r = (r * 9301 + 49297) % 233280) / 233280);
 
-    // Tiled floor.
-    const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(X, Z),
-      new THREE.MeshStandardMaterial({ map: floorTexture(X, Z), roughness: 0.9 }),
-    );
+    // Tiled floor (texture and material shared by wells of the same size).
+    const floorKey = X + 'x' + Z;
+    s.floors ??= new Map();
+    if (!s.floors.has(floorKey)) s.floors.set(floorKey, new THREE.MeshStandardMaterial({ map: floorTexture(X, Z), roughness: 0.9 }));
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(X, Z), s.floors.get(floorKey));
     floor.rotation.x = -Math.PI / 2;
     floor.position.y = 0.001;
     floor.receiveShadow = true;
     decor.add(floor);
 
-    // Grass slab and a rocky underside: a little floating island.
+    // Grass slab and a rocky underside: a little floating island, merged into one mesh.
     const pad = 0.9;
-    const slab = new THREE.Mesh(new RoundedBoxGeometry(X + pad * 2, 0.6, Z + pad * 2, 2, 0.22), s.grass);
-    slab.position.y = -0.3;
-    slab.receiveShadow = true;
-    decor.add(slab);
     const rx = (X + pad * 2) / 2, rz = (Z + pad * 2) / 2;
-    const rock = new THREE.Mesh(new THREE.CylinderGeometry(1, 0.18, 1, 7, 2), s.dirt);
-    rock.scale.set(rx * 1.02, Math.max(2.2, Math.max(X, Z) * 0.75), rz * 1.02);
-    rock.position.y = -0.6 - rock.scale.y / 2;
-    decor.add(rock);
-    const band = new THREE.Mesh(new THREE.CylinderGeometry(1, 0.92, 1, 7, 1), s.dirtDark);
-    band.scale.set(rx * 1.04, 0.35, rz * 1.04);
-    band.position.y = -0.62;
-    decor.add(band);
+    const depth = Math.max(2.2, Math.max(X, Z) * 0.75);
+    const part = (geo, color, m, flat = false) => {
+      geo.applyMatrix4(m);
+      let g = geo.index ? geo.toNonIndexed() : geo;
+      if (flat) g.computeVertexNormals();
+      const c = new THREE.Color(color);
+      const n = g.attributes.position.count;
+      const col = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) col.set([c.r, c.g, c.b], i * 3);
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      return g;
+    };
+    const M = (x, y, z, sx = 1, sy = 1, sz = 1) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion(), new THREE.Vector3(sx, sy, sz));
+    const island = new THREE.Mesh(
+      mergeGeometries([
+        part(new RoundedBoxGeometry(X + pad * 2, 0.6, Z + pad * 2, 2, 0.22), '#8fd46b', M(0, -0.3, 0)),
+        part(new THREE.CylinderGeometry(1, 0.18, 1, 7, 2), '#c89468', M(0, -0.6 - depth / 2, 0, rx * 1.02, depth, rz * 1.02), true),
+        part(new THREE.CylinderGeometry(1, 0.92, 1, 7, 1), '#a8724f', M(0, -0.62, 0, rx * 1.04, 0.35, rz * 1.04), true),
+      ]),
+      s.island,
+    );
+    island.receiveShadow = true;
+    decor.add(island);
 
-    // Corner posts and the rim.
-    const posts = new THREE.Group();
-    const postGeo = new RoundedBoxGeometry(0.16, H + 0.3, 0.16, 1, 0.05);
+    // Corner posts and the rim, one mesh.
+    const frameParts = [];
     for (const sx of [-1, 1])
       for (const sz of [-1, 1]) {
-        const m = new THREE.Mesh(postGeo, s.wood);
-        m.position.set((sx * X) / 2, (H + 0.3) / 2, (sz * Z) / 2);
-        m.castShadow = true;
-        posts.add(m);
+        const g = new RoundedBoxGeometry(0.16, H + 0.3, 0.16, 1, 0.05);
+        g.translate((sx * X) / 2, (H + 0.3) / 2, (sz * Z) / 2);
+        frameParts.push(g);
       }
-    const rimX = new RoundedBoxGeometry(X + 0.16, 0.12, 0.12, 1, 0.04);
-    const rimZ = new RoundedBoxGeometry(0.12, 0.12, Z + 0.16, 1, 0.04);
     for (const s2 of [-1, 1]) {
-      const a = new THREE.Mesh(rimX, s.wood);
-      a.position.set(0, H + 0.3, (s2 * Z) / 2);
-      const b = new THREE.Mesh(rimZ, s.wood);
-      b.position.set((s2 * X) / 2, H + 0.3, 0);
-      posts.add(a, b);
+      const a = new RoundedBoxGeometry(X + 0.16, 0.12, 0.12, 1, 0.04);
+      a.translate(0, H + 0.3, (s2 * Z) / 2);
+      const b = new RoundedBoxGeometry(0.12, 0.12, Z + 0.16, 1, 0.04);
+      b.translate((s2 * X) / 2, H + 0.3, 0);
+      frameParts.push(a, b);
     }
-    this.posts = posts;
-    decor.add(posts);
+    this.frame = new THREE.Mesh(mergeGeometries(frameParts), s.wood);
+    this.frame.castShadow = true;
+    decor.add(this.frame);
 
     // Faint grid on the walls helps judge height and depth.
     const pts = [];
@@ -261,7 +270,11 @@ export class WellView {
       decor.add(back);
     }
 
-    // Flowers and tufts around the edge of the island.
+    if (this.lite) {
+      this.group.add(decor);
+      return;
+    }
+    // Flowers around the edge of the island.
     const petalGeo = new THREE.SphereGeometry(0.11, 6, 4);
     const count = Math.round((X + Z) * 2.2);
     const flowers = new THREE.InstancedMesh(petalGeo, s.flower, count * 5);
@@ -296,10 +309,15 @@ export class WellView {
     this.group.add(decor);
   }
 
+  colorOf(v, y) {
+    if (this.layerColors) return LAYER_PALETTE[y % LAYER_PALETTE.length];
+    return PALETTE[v - 1] ?? WHITE;
+  }
+
   setActive(on) {
     if (on === this.active) return;
     this.active = on;
-    for (const m of this.posts.children) m.material = on ? this.shared.woodActive : this.shared.wood;
+    this.frame.material = on ? this.shared.woodActive : this.shared.wood;
   }
 
   // ---- events ----
@@ -326,7 +344,7 @@ export class WellView {
     for (const { p, color } of ev.removed) {
       if (!this.owns(p)) continue;
       any = true;
-      this.flashes.push({ x: p[0], y: p[1], z: this.dim >= 3 ? p[2] : 0, color, t: 0 });
+      this.flashes.push({ x: p[0], y: p[1], z: this.dim >= 3 ? p[2] : 0, color: this.colorOf(color + 1, p[1]), t: 0 });
     }
     if (ev.drop) {
       for (let li = 0; li < this.n; li++) {
@@ -348,9 +366,62 @@ export class WellView {
   // ---- per frame ----
   update(dt) {
     this.particles.update(dt);
+    this.particles.points.visible = this.particles.n > 0;
     if (this.flashes.length) this.updateFlashes(dt);
     if (this.hang > 0) this.hang -= dt;
-    if (this.animating || this.dirty) this.rebuildBlocks(dt);
+    if (this.debris) this.updateDebris(dt);
+    else if (this.animating || this.dirty) this.rebuildBlocks(dt);
+  }
+
+  // Game over: every block pops off and tumbles down past the island.
+  collapse() {
+    const grid = this.game.grid;
+    this.debris = [];
+    for (let z = 0; z < this.Z; z++)
+      for (let y = 0; y < this.Y; y++)
+        for (let x = 0; x < this.X; x++) {
+          const v = grid[this.globalIndex[this.local(x, y, z)]];
+          if (!v) continue;
+          const p = this.cellPos(x, y, z).clone();
+          const out = new THREE.Vector3(p.x, 0, p.z).normalize().multiplyScalar(1 + Math.random() * 2.5);
+          this.debris.push({
+            p, v: new THREE.Vector3(out.x + (Math.random() - 0.5) * 2, 3 + Math.random() * 5 + y * 0.15, out.z + (Math.random() - 0.5) * 2),
+            q: new THREE.Quaternion(), w: new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(9),
+            color: this.colorOf(v, y), delay: (this.Y - y) * 0.012 + Math.random() * 0.08,
+          });
+        }
+  }
+
+  updateDebris(dt) {
+    let k = 0;
+    const dq = new THREE.Quaternion();
+    for (const d of this.debris) {
+      if (d.delay > 0) d.delay -= dt;
+      else {
+        d.v.y -= 22 * dt;
+        d.p.addScaledVector(d.v, dt);
+        dq.setFromAxisAngle(tmpS.copy(d.w).normalize(), d.w.length() * dt);
+        d.q.premultiply(dq);
+        // Bounce once on the island, then fall off it.
+        if (d.p.y < 0.5 && Math.abs(d.p.x) < this.X / 2 + 0.9 && Math.abs(d.p.z) < this.Z / 2 + 0.9 && d.v.y < 0 && !d.bounced) {
+          d.p.y = 0.5;
+          d.v.y *= -0.45;
+          d.v.x *= 1.3;
+          d.v.z *= 1.3;
+          d.bounced = true;
+        }
+      }
+      if (d.p.y < -30) continue;
+      tmpS.setScalar(1);
+      tmpM.compose(d.p, d.q, tmpS);
+      this.blocks.setMatrixAt(k, tmpM);
+      this.blocks.setColorAt(k, d.color);
+      k++;
+    }
+    this.blocks.count = k;
+    this.blocks.visible = k > 0;
+    this.blocks.instanceMatrix.needsUpdate = true;
+    if (this.blocks.instanceColor) this.blocks.instanceColor.needsUpdate = true;
   }
 
   updateFlashes(dt) {
@@ -361,7 +432,7 @@ export class WellView {
       f.t += dt;
       if (before < 0.16 && f.t >= 0.16) {
         const p = this.cellPos(f.x, f.y, f.z);
-        this.particles.burst(p.x, p.y, p.z, PALETTE[f.color] ?? WHITE, this.dim >= 4 ? 0.6 : 1);
+        this.particles.burst(p.x, p.y, p.z, f.color, this.dim >= 4 ? 0.6 : 1);
       }
       if (f.t > 0.32) continue;
       out.push(f);
@@ -371,12 +442,13 @@ export class WellView {
       tmpS.setScalar(s);
       tmpM.compose(tmpP, tmpQ.identity(), tmpS);
       this.flash.setMatrixAt(k, tmpM);
-      tmpC.copy(PALETTE[f.color] ?? WHITE).lerp(WHITE, Math.min(1, t * 2.5));
+      tmpC.copy(f.color).lerp(WHITE, Math.min(1, t * 2.5));
       this.flash.setColorAt(k, tmpC);
       k++;
     }
     this.flashes = out;
     this.flash.count = k;
+    this.flash.visible = k > 0;
     this.flash.instanceMatrix.needsUpdate = true;
     if (this.flash.instanceColor) this.flash.instanceColor.needsUpdate = true;
   }
@@ -424,10 +496,11 @@ export class WellView {
           tmpS.set(sx, sy, sx);
           tmpM.compose(tmpP, tmpQ.identity(), tmpS);
           this.blocks.setMatrixAt(k, tmpM);
-          this.blocks.setColorAt(k, PALETTE[v - 1] ?? WHITE);
+          this.blocks.setColorAt(k, this.colorOf(v, y));
           k++;
         }
     this.blocks.count = k;
+    this.blocks.visible = k > 0;
     this.blocks.instanceMatrix.needsUpdate = true;
     if (this.blocks.instanceColor) this.blocks.instanceColor.needsUpdate = true;
     this.animating = !still;
@@ -449,6 +522,7 @@ export class WellView {
       k++;
     }
     this.piece.count = k;
+    this.piece.visible = k > 0;
     this.piece.instanceMatrix.needsUpdate = true;
     if (this.piece.instanceColor) this.piece.instanceColor.needsUpdate = true;
 
@@ -467,6 +541,7 @@ export class WellView {
       }
     }
     this.ghost.count = g;
+    this.ghost.visible = g > 0;
     this.ghost.instanceMatrix.needsUpdate = true;
     if (this.ghost.instanceColor) this.ghost.instanceColor.needsUpdate = true;
 
@@ -499,6 +574,7 @@ export class WellView {
       }
     }
     this.beams.count = b;
+    this.beams.visible = b > 0;
     this.beams.instanceMatrix.needsUpdate = true;
   }
 

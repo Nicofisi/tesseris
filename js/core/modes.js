@@ -13,10 +13,10 @@ export const MODES = {
   '3d': {
     dim: 3,
     presets: [
-      { id: 'cozy', floor: [4, 4], height: 12 },
-      { id: 'classic', floor: [5, 5], height: 14 },
-      { id: 'big', floor: [7, 7], height: 16 },
-      { id: 'ten', floor: [10, 10], height: 20 },
+      { id: 'cozy', floor: [4, 4], height: 10 },
+      { id: 'classic', floor: [5, 5], height: 12 },
+      { id: 'big', floor: [7, 7], height: 14 },
+      { id: 'ten', floor: [10, 10], height: 16 },
     ],
     default: 'classic',
   },
@@ -27,7 +27,7 @@ export const MODES = {
       { id: 'six', floor: [4, 4], wells: [6], height: 12 },
       { id: 'ten', floor: [4, 4], wells: [10], height: 12 },
     ],
-    default: 'six',
+    default: 'four',
   },
   '5d': {
     dim: 5,

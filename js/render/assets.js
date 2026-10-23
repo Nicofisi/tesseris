@@ -16,6 +16,22 @@ export const PALETTE = [
   '#c8ea5c', // lime (corner tricube)
 ].map((c) => new THREE.Color(c));
 
+// Locked blocks in 3D+ are coloured by height, so the layers read like a contour map.
+export const LAYER_PALETTE = [
+  '#ff8fab', // rose
+  '#ffa94d', // apricot
+  '#ffd43b', // butter
+  '#a9e34b', // lime
+  '#51cf66', // leaf
+  '#38d9a9', // mint
+  '#3bc9db', // aqua
+  '#4dabf7', // sky
+  '#748ffc', // periwinkle
+  '#b197fc', // lavender
+  '#e599f7', // orchid
+  '#f783ac', // pink
+].map((c) => new THREE.Color(c));
+
 let toonGradient = null;
 export function toonRamp() {
   if (toonGradient) return toonGradient;

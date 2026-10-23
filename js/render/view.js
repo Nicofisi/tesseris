@@ -86,8 +86,9 @@ export class GameView {
     rec(0, []);
     // Wells ordered so that index = w + W * v.
     coords.sort((a, b) => (a[1] ?? 0) - (b[1] ?? 0) || (a[0] ?? 0) - (b[0] ?? 0));
+    const lite = coords.length > 16;
     coords.forEach((c, i) => {
-      const wv = new WellView({ game, wellCoords: c, shared: this.shared, seed: i + 3 });
+      const wv = new WellView({ game, wellCoords: c, shared: this.shared, seed: i + 3, lite, layerColors: game.dim >= 3 && this.layerColors !== false });
       wv.group.visible = false;
       this.scene.add(wv.group);
       this.wells.push(wv);
@@ -98,7 +99,7 @@ export class GameView {
       this.cam.pitch = this.cam.pitchTarget = 0.12;
     } else {
       this.cam.yaw = this.cam.yawTarget = 0.32;
-      this.cam.pitch = this.cam.pitchTarget = dim === 3 ? 0.92 : 1.0;
+      this.cam.pitch = this.cam.pitchTarget = dim === 3 ? 1.02 : 1.05;
     }
     this.cam.zoom = 1;
     this.camera.fov = dim === 2 ? 26 : 32;
@@ -112,7 +113,7 @@ export class GameView {
     this.key.target.position.set(0, (b.max.y + b.min.y) / 2, 0);
     this.key.position.set(r * 0.35, r * 3.2, r * 0.9).add(this.key.target.position);
     this.fill.position.set(-r, r, -r);
-    this.renderer.shadowMap.enabled = this.wells.length <= 16;
+    this.renderer.shadowMap.enabled = this.wells.length <= 16 && this.shadowsAllowed !== false;
     this.layout();
   }
 
@@ -151,7 +152,8 @@ export class GameView {
         const cw = w / c, ch = h / r;
         return Math.min(cw / 0.62, ch);
       };
-      rows = W >= 6 && score(2) > score(1) * 1.08 ? 2 : 1;
+      // Neighbouring wells read best in one row; wrap only when that makes them much bigger.
+      rows = W >= 6 && score(2) > score(1) * 1.3 ? 2 : 1;
       cols = Math.ceil(W / rows);
     } else if (g.wellAxes.length === 2) {
       cols = g.size[g.wellAxes[0]];
@@ -203,7 +205,7 @@ export class GameView {
   toggleTop() {
     if (this.game?.dim === 2) return;
     const top = 1.5;
-    this.cam.pitchTarget = this.cam.pitchTarget > 1.4 ? (this.game.dim === 3 ? 0.92 : 1.0) : top;
+    this.cam.pitchTarget = this.cam.pitchTarget > 1.4 ? (this.game.dim === 3 ? 1.02 : 1.05) : top;
   }
   zoomBy(f) {
     this.cam.zoom = Math.max(0.55, Math.min(1.8, this.cam.zoom * f));
@@ -299,6 +301,11 @@ export class GameView {
     }
   }
 
+  collapse() {
+    for (const w of this.wells) w.collapse();
+    this.shake = 1.2;
+  }
+
   // Screen position (CSS px) of a grid cell, for score popups.
   cellToScreen(c) {
     const wi = this.wellIndexOf(c);
@@ -323,8 +330,9 @@ export class GameView {
     this.shake = Math.max(0, this.shake - dt * 4);
     const g = this.game;
     if (!g) return;
-    const cells = g.piece ? g.absCells() : [];
-    const ghost = g.piece ? g.ghostCells() : [];
+    const live = g.piece && g.state === 'play';
+    const cells = live ? g.absCells() : [];
+    const ghost = live ? g.ghostCells() : [];
     const color = g.piece?.color ?? 0;
     const activeWells = new Set(cells.map((c) => this.wellIndexOf(c)));
     this.wells.forEach((w, i) => {

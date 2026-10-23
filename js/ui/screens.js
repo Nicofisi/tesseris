@@ -2,6 +2,7 @@
 import { MODES } from '../core/modes.js';
 import { MODE_INFO, MODE_NAMES, presetList, presetLabel, categoryLabel } from './text.js';
 import * as scores from './scores.js';
+import { mountTesseract } from './tesseract.js';
 
 const root = () => document.getElementById('screens');
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -43,7 +44,7 @@ export function showMenu(app) {
     const best = scores.bestFor(scores.categoryOf({ ...sel, presetId }));
     const el = mount(`
       <div class="card">
-        <h1 class="logo">${'Tesseris'.split('').map((ch, i) => `<span style="color:${['#ff6f91', '#ffa046', '#ffd166', '#7bdc5a', '#4fd8ee', '#5b8cff', '#b28dff', '#ff85d6'][i]};animation-delay:${i * 0.12}s">${ch}</span>`).join('')}</h1>
+        <h1 class="logo"><canvas class="tess" aria-hidden="true"></canvas>${'Tesseris'.split('').map((ch, i) => `<span style="color:${['#ff6f91', '#ffa046', '#ffd166', '#7bdc5a', '#4fd8ee', '#5b8cff', '#b28dff', '#ff85d6'][i]};animation-delay:${i * 0.12}s">${ch}</span>`).join('')}</h1>
         <p class="tagline">przytulny tetris w dwóch, trzech, czterech i pięciu wymiarach</p>
         <div class="dims">
           ${Object.keys(MODES).map((id, i) => `
@@ -72,6 +73,7 @@ export function showMenu(app) {
           <button class="btn ghost small" id="settings">Ustawienia</button>
         </div>
       </div>`, 'menu');
+    mountTesseract(el.querySelector('.tess'));
     el.querySelectorAll('.dim-card').forEach((c) =>
       c.addEventListener('click', () => {
         sel.modeId = c.dataset.mode;

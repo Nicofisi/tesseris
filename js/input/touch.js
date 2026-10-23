@@ -45,11 +45,19 @@ export class TouchControls {
     this.el.innerHTML = pad(layout.left, hyper) + pad(layout.right);
     this.el.hidden = false;
     this.bind();
+    this.measure();
+  }
+
+  // The board leaves room for the buttons below it (portrait).
+  measure() {
+    const h = this.el.hidden ? 0 : this.el.getBoundingClientRect().height;
+    document.getElementById('hud').style.setProperty('--touch-h', `${Math.round(h)}px`);
   }
 
   hide() {
     this.el.hidden = true;
     this.el.innerHTML = '';
+    this.measure();
     this.app.controls.hyperLatch = false;
   }
 

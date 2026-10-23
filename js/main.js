@@ -67,6 +67,7 @@ class App {
   }
 
   onResize() {
+    this.touch.measure();
     this.view.resize();
     if (this.game) this.hud.layout();
     else this.layoutDemo();

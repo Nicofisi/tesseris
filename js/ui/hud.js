@@ -64,6 +64,12 @@ export class Hud {
     this.holdEl = $('holdSlot');
     this.buildFrames();
     this.layout();
+    const intro = {
+      3: 'Zapełnij całą warstwę podłogi',
+      4: 'Studnie obok siebie to jedna przestrzeń 4D',
+      5: 'Siatka studni to przestrzeń 5D. Powodzenia!',
+    }[dim];
+    if (intro) setTimeout(() => this.game === game && this.toast(intro, 'wide'), 400);
   }
 
   hide() {
@@ -180,9 +186,9 @@ export class Hud {
     setTimeout(() => d.remove(), 1600);
   }
 
-  toast(text) {
+  toast(text, cls = '') {
     const d = document.createElement('div');
-    d.className = 'toast';
+    d.className = 'toast ' + cls;
     d.textContent = text;
     this.popups.appendChild(d);
     setTimeout(() => d.remove(), 2100);
