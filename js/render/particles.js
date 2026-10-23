@@ -12,13 +12,14 @@ const VERT = /* glsl */ `
   varying float vSpin;
   varying vec3 vColor;
   uniform float uScale;
+  uniform float uOrtho;
   void main() {
     vAlpha = aAlpha;
     vKind = aKind;
     vSpin = aSpin;
     vColor = aColor;
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
-    gl_PointSize = aSize * uScale / max(0.1, -mv.z);
+    gl_PointSize = uOrtho > 0.5 ? aSize * uScale : aSize * uScale / max(0.1, -mv.z);
     gl_Position = projectionMatrix * mv;
   }
 `;
@@ -77,7 +78,7 @@ export class Particles {
     this.material = new THREE.ShaderMaterial({
       vertexShader: VERT,
       fragmentShader: FRAG,
-      uniforms: { uScale: { value: 300 } },
+      uniforms: { uScale: { value: 300 }, uOrtho: { value: 0 } },
       transparent: true,
       depthWrite: false,
     });
@@ -86,8 +87,10 @@ export class Particles {
     this.points.renderOrder = 10;
   }
 
-  setScale(pixelHeight) {
-    this.material.uniforms.uScale.value = pixelHeight;
+  // Perspective: pixels per world unit at distance 1. Orthographic: pixels per world unit.
+  setScale(scale, ortho = false) {
+    this.material.uniforms.uScale.value = scale;
+    this.material.uniforms.uOrtho.value = ortho ? 1 : 0;
   }
 
   emit({ x, y, z, vx = 0, vy = 0, vz = 0, life = 1, size = 0.3, kind = 0, color, drag = 1.5, gravity = -2 }) {

@@ -5,6 +5,7 @@ import { GameView } from './render/view.js';
 import { Hud } from './ui/hud.js';
 import { Controls } from './input/controls.js';
 import { TouchControls } from './input/touch.js';
+import { GamepadInput } from './input/gamepad.js';
 import * as screens from './ui/screens.js';
 import { loadSettings, saveSettings } from './ui/scores.js';
 import { Sound } from './audio/sound.js';
@@ -18,10 +19,12 @@ class App {
       modeId: '3d', presets: {}, gameMode: 'marathon', clearRule: 'well', ...(this.settings.selection ?? {}),
     };
     this.view = new GameView(document.getElementById('stage'));
+    this.view.layerColors = this.settings.layerColors !== false;
     this.hud = new Hud(this);
     this.sound = new Sound(this.settings);
     this.controls = new Controls(this);
     this.touch = new TouchControls(this);
+    this.gamepad = new GamepadInput(this);
     this.state = 'menu';
     this.game = null;
     this.cfg = null;
@@ -155,6 +158,8 @@ class App {
     this.game = new Game({ ...base, mode: sel.gameMode, clearRule: this.cfg.clearRule, timeLimit: 180 });
     this.demo = null;
     this.controls.releaseAll();
+    // A focused button would take the space bar (hard drop) as a click.
+    document.activeElement?.blur?.();
     this.view.setGame(this.game);
     this.view.env.setDayTime(0);
     screens.clearScreens();
@@ -180,6 +185,7 @@ class App {
   resume() {
     if (this.state !== 'paused') return;
     screens.clearScreens();
+    document.activeElement?.blur?.();
     this.state = 'playing';
     this.sound.setPaused(false);
   }
@@ -199,6 +205,7 @@ class App {
   frame(t) {
     const dt = Math.min(0.05, Math.max(0, (t - this.last) / 1000));
     this.last = t;
+    this.gamepad.update();
     if (this.state === 'playing') {
       const g = this.game;
       this.controls.update(dt);
@@ -208,6 +215,7 @@ class App {
       this.hud.onEvents(events);
       this.sound.onEvents(events, g);
       for (const e of events) {
+        if (e.type === 'clear') this.gamepad.rumble(Math.min(1, 0.3 + e.count * 0.15), 120 + e.count * 40);
         if (e.type === 'levelUp') {
           this.view.env.setDayTime(Math.min(1, (e.level - 1) / 10));
           this.sound.setLevel(e.level);

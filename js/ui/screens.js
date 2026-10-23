@@ -1,6 +1,6 @@
 // Menus: title, pause, game over with name entry, leaderboard, help and settings.
 import { MODES } from '../core/modes.js';
-import { MODE_INFO, MODE_NAMES, presetList, presetLabel, categoryLabel } from './text.js';
+import { MODE_INFO, MODE_NAMES, presetList, categoryLabel } from './text.js';
 import * as scores from './scores.js';
 import { mountTesseract } from './tesseract.js';
 
@@ -71,6 +71,7 @@ export function showMenu(app) {
           <button class="btn ghost small" id="scores">Ranking</button>
           <button class="btn ghost small" id="help">Jak grać</button>
           <button class="btn ghost small" id="settings">Ustawienia</button>
+          ${document.fullscreenEnabled ? '<button class="btn ghost small" id="fs">Pełny ekran</button>' : ''}
         </div>
       </div>`, 'menu');
     mountTesseract(el.querySelector('.tess'));
@@ -101,6 +102,10 @@ export function showMenu(app) {
       render();
     });
     el.querySelector('#play').addEventListener('click', () => app.startGame());
+    el.querySelector('#fs')?.addEventListener('click', () => {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen?.().catch(() => {});
+    });
     el.querySelector('#scores').addEventListener('click', () => showScores(app, { ...sel, presetId }));
     el.querySelector('#help').addEventListener('click', () => showHelp(app, () => showMenu(app)));
     el.querySelector('#settings').addEventListener('click', () => showSettings(app, () => showMenu(app)));
@@ -225,6 +230,7 @@ export function showScores(app, cfg, { highlight = null, rank = 0, afterGame = f
             <td class="num"><b>${fmt(s.score)}</b></td><td class="num">${s.lines}</td><td class="num">${s.level}</td>
             <td class="num">${new Date(s.date).toLocaleString('pl-PL', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })}</td></tr>`).join('')}
         </table>` : `<p class="empty">Pusto. Pierwszy wynik będzie rekordem!</p>`}
+        ${recordsTable()}
         <div class="row" style="margin-top:18px">
           ${afterGame ? `<button class="btn" id="again">Jeszcze raz</button>` : ''}
           <button class="btn ${afterGame ? 'ghost small' : ''}" id="back">${afterGame ? 'Menu' : 'Wróć'}</button>
@@ -242,6 +248,19 @@ export function showScores(app, cfg, { highlight = null, rank = 0, afterGame = f
     if (e.code === 'Escape') app.toMenu();
     if (afterGame && e.code === 'Enter') app.startGame();
   };
+}
+
+function recordsTable() {
+  const order = Object.keys(MODES);
+  const list = scores.records().sort((a, b) => {
+    const pa = scores.parseCategory(a.cat), pb = scores.parseCategory(b.cat);
+    return order.indexOf(pa.modeId) - order.indexOf(pb.modeId) || a.cat.localeCompare(b.cat);
+  });
+  if (list.length < 2) return '';
+  return `<h3>Rekordy wszystkich trybów</h3>
+    <table class="scores">${list
+      .map(({ cat, entry }) => `<tr><td>👑</td><td>${esc(categoryLabel(scores.parseCategory(cat)))}</td><td>${esc(entry.name)}</td><td class="num"><b>${fmt(entry.score)}</b></td></tr>`)
+      .join('')}</table>`;
 }
 
 // ---------------- help ----------------
@@ -284,6 +303,7 @@ export function showSettings(app, back) {
       <h2>Ustawienia</h2>
       <div class="settings-row"><span>Muzyka</span><input type="range" id="music" min="0" max="1" step="0.05" value="${s.music}"></div>
       <div class="settings-row"><span>Dźwięki</span><input type="range" id="sfx" min="0" max="1" step="0.05" value="${s.sfx}"></div>
+      <div class="settings-row"><span>Kolory w 3D–5D</span>${seg('colors', [{ id: 'layer', label: 'wg wysokości' }, { id: 'piece', label: 'wg klocka' }], s.layerColors === false ? 'piece' : 'layer')}</div>
       <div class="settings-row"><span>Grafika</span>${seg('quality', [{ id: 'auto', label: 'auto' }, { id: 'high', label: 'ładna' }, { id: 'low', label: 'szybka' }], s.quality)}</div>
       <div class="settings-row"><span>Gracze na liście</span><span class="chips" id="pl">${scores.players().map((n) => `<button class="chip" data-n="${esc(n)}" title="Usuń">${esc(n)} ✕</button>`).join('') || '<span class="hint">nikogo</span>'}</span></div>
       <div class="settings-row"><span>Ranking</span><button class="btn ghost small" id="wipe">Wyczyść wszystkie wyniki</button></div>
@@ -295,6 +315,12 @@ export function showSettings(app, back) {
   };
   el.querySelector('#music').addEventListener('input', (e) => ((s.music = Number(e.target.value)), upd()));
   el.querySelector('#sfx').addEventListener('input', (e) => ((s.sfx = Number(e.target.value)), upd(), app.sound.ui('select')));
+  bindSeg(el, 'colors', (v) => {
+    s.layerColors = v === 'layer';
+    app.saveSettings();
+    app.view.setLayerColors(s.layerColors);
+    showSettings(app, back);
+  });
   bindSeg(el, 'quality', (v) => {
     s.quality = v;
     app.saveSettings();
@@ -321,4 +347,3 @@ export function showSettings(app, back) {
   document.onkeydown = (e) => e.code === 'Escape' && back();
 }
 
-export { presetLabel };

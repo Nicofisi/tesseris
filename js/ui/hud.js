@@ -107,7 +107,7 @@ export class Hud {
       const r = rects[i];
       if (!r) return;
       Object.assign(d.style, { left: r.x + 'px', top: r.y + 'px', width: r.w + 'px', height: r.h + 'px' });
-      d.classList.toggle('tiny', r.w < 90 || r.h < 70);
+      d.classList.toggle('tiny', r.w < 130 || r.h < 100);
     });
   }
 

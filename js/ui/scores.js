@@ -57,6 +57,21 @@ export function wouldRank(category, score) {
   return score > 0 && (top.length < 10 || score > top[top.length - 1].score);
 }
 
+// The best result of every category that has one, as [{ cat, entry }].
+export function records() {
+  const best = new Map();
+  for (const s of allScores()) {
+    const cur = best.get(s.cat);
+    if (!cur || s.score > cur.score) best.set(s.cat, s);
+  }
+  return [...best.entries()].map(([cat, entry]) => ({ cat, entry }));
+}
+
+export function parseCategory(cat) {
+  const [modeId, presetId, gameMode, clearRule] = cat.split('|');
+  return { modeId, presetId, gameMode, clearRule };
+}
+
 export function bestFor(category) {
   return topScores(category, 1)[0] ?? null;
 }

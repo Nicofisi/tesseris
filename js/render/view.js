@@ -87,6 +87,7 @@ export class GameView {
     // Wells ordered so that index = w + W * v.
     coords.sort((a, b) => (a[1] ?? 0) - (b[1] ?? 0) || (a[0] ?? 0) - (b[0] ?? 0));
     const lite = coords.length > 16;
+    this.batched = lite;
     coords.forEach((c, i) => {
       const wv = new WellView({ game, wellCoords: c, shared: this.shared, seed: i + 3, lite, layerColors: game.dim >= 3 && this.layerColors !== false });
       wv.group.visible = false;
@@ -115,6 +116,14 @@ export class GameView {
     this.fill.position.set(-r, r, -r);
     this.renderer.shadowMap.enabled = this.wells.length <= 16 && this.shadowsAllowed !== false;
     this.layout();
+  }
+
+  setLayerColors(on) {
+    this.layerColors = on;
+    for (const w of this.wells) {
+      w.layerColors = on && w.dim >= 3;
+      w.dirty = true;
+    }
   }
 
   setBoardRect(rect) {
@@ -287,7 +296,7 @@ export class GameView {
           break;
         case 'hardDrop':
           this.pieceOffset.set(0, 0, 0);
-          for (const w of this.wells) w.onHardDrop(e.cells, g.piece?.color ?? 0);
+          for (const w of this.wells) w.onHardDrop(e.cells, g.piece?.color ?? 0, e.distance);
           this.shake = Math.max(this.shake, Math.min(1, 0.25 + e.distance * 0.03));
           break;
         case 'lock':
@@ -312,6 +321,11 @@ export class GameView {
     const r = this.rects[wi];
     const well = this.wells[wi];
     if (!r || !well) return null;
+    if (this.batched) {
+      const cam = this.placeBatched();
+      const p = well.cellPos(c[0], c[1], this.game.dim >= 3 ? c[2] : 0).clone().add(well.group.position).project(cam);
+      return { x: ((p.x + 1) / 2) * this.width, y: ((1 - p.y) / 2) * this.height };
+    }
     this.fitCamera(r.w / r.h);
     const p = well.cellPos(c[0], c[1], this.game.dim >= 3 ? c[2] : 0).clone().project(this.camera);
     return { x: r.x + ((p.x + 1) / 2) * r.w, y: r.y + ((1 - p.y) / 2) * r.h };
@@ -358,11 +372,22 @@ export class GameView {
       this.hemi.groundColor.copy(pal.hemiGround);
       this.key.color.copy(pal.light);
     }
+    if (this.batched) {
+      this.renderBatched();
+      this.renderPreviews();
+      return;
+    }
     const first = this.rects[0];
     if (first) this.fitCamera(first.w / first.h);
+    const g = this.game;
+    const ghost = g.dim >= 3 && g.piece && g.state === 'play' ? g.ghostCells() : [];
     this.wells.forEach((w, i) => {
       const rc = this.rects[i];
       if (!rc || rc.w < 2 || rc.h < 2) return;
+      if (g.dim >= 3) {
+        w.updateOccluders(this.camera.position, ghost);
+        if (w.dirty) w.rebuildBlocks(0);
+      }
       w.particles.setScale((rc.h * 0.5) / Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)));
       w.group.visible = true;
       r.setViewport(rc.x, H - rc.y - rc.h, rc.w, rc.h);
@@ -373,6 +398,54 @@ export class GameView {
     });
     this.renderPreviews();
     r.setScissorTest(false);
+  }
+
+  // Many wells (5D): one orthographic pass, each well moved so it lands in its own cell.
+  // In an orthographic view a shift in the camera plane is just a shift on screen.
+  placeBatched() {
+    const { yaw, pitch } = this.cam;
+    const dir = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
+    const right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
+    const up = new THREE.Vector3().crossVectors(dir, right).normalize();
+    const b = this.wells[0].bounds();
+    const bc = b.getCenter(new THREE.Vector3());
+    let ex = 0, ey = 0;
+    for (const cx of [b.min.x, b.max.x]) for (const cy of [b.min.y, b.max.y]) for (const cz of [b.min.z, b.max.z]) {
+      const rel = new THREE.Vector3(cx, cy, cz).sub(bc);
+      ex = Math.max(ex, Math.abs(rel.dot(right)));
+      ey = Math.max(ey, Math.abs(rel.dot(up)));
+    }
+    const rc = this.rects[0];
+    const k = (Math.max((2 * ex) / rc.w, (2 * ey) / rc.h) * 1.04) / Math.min(1, this.cam.zoom); // world units per pixel
+    const W = this.width, H = this.height;
+    const cam = this.orthoCam ?? (this.orthoCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 2000));
+    cam.left = (-W / 2) * k;
+    cam.right = (W / 2) * k;
+    cam.top = (H / 2) * k;
+    cam.bottom = (-H / 2) * k;
+    cam.position.copy(dir).multiplyScalar(500);
+    cam.up.set(0, 1, 0);
+    cam.lookAt(0, 0, 0);
+    cam.updateProjectionMatrix();
+    if (this.shake > 0) cam.position.addScaledVector(right, (Math.random() - 0.5) * this.shake * 0.1);
+    this.wells.forEach((w, i) => {
+      const r = this.rects[i];
+      const sx = (r.x + r.w / 2 - W / 2) * k, sy = (H / 2 - (r.y + r.h / 2)) * k;
+      w.group.position.copy(right).multiplyScalar(sx).addScaledVector(up, sy).sub(bc);
+      w.particles.setScale(1 / k, true);
+    });
+    return cam;
+  }
+
+  renderBatched() {
+    const r = this.renderer;
+    r.setScissorTest(false);
+    r.setViewport(0, 0, this.width, this.height);
+    r.clearDepth();
+    const cam = this.placeBatched();
+    for (const w of this.wells) w.group.visible = true;
+    r.render(this.scene, cam);
+    for (const w of this.wells) w.group.visible = false;
   }
 
   clearPreviews() {

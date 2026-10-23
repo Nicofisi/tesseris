@@ -82,13 +82,13 @@ export function createWellShared() {
   const beamMat = new THREE.MeshBasicMaterial({
     color: 0xffffff, transparent: true, opacity: 0.11, depthWrite: false, blending: THREE.AdditiveBlending,
   });
+  const fadedMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, transparent: true, opacity: 0.22, depthWrite: false });
   const wood = new THREE.MeshStandardMaterial({ color: '#c98a5b', roughness: 0.8 });
   const woodActive = new THREE.MeshStandardMaterial({ color: '#ffd27a', roughness: 0.5, emissive: '#ffb347', emissiveIntensity: 0.65 });
   const island = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 });
   const lines = new THREE.LineBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.22, depthWrite: false });
-  const glass = new THREE.MeshBasicMaterial({ color: '#dff6ff', transparent: true, opacity: 0.08, depthWrite: false, side: THREE.DoubleSide });
   const flower = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7 });
-  return { blockMat, pieceMat, ghostMat, flashMat, beamMat, wood, woodActive, island, lines, glass, flower };
+  return { blockMat, pieceMat, ghostMat, flashMat, beamMat, fadedMat, wood, woodActive, island, lines, flower };
 }
 
 export class WellView {
@@ -132,6 +132,13 @@ export class WellView {
     this.blocks.receiveShadow = true;
     this.blocks.count = 0;
     this.blocks.frustumCulled = false;
+    // Blocks between the camera and the landing spot are drawn see-through.
+    this.faded = new THREE.InstancedMesh(geo, shared.fadedMat, n);
+    this.faded.count = 0;
+    this.faded.visible = false;
+    this.faded.renderOrder = 4;
+    this.faded.frustumCulled = false;
+    this.occluders = new Set();
     this.piece = new THREE.InstancedMesh(geo, shared.pieceMat, 32);
     this.piece.castShadow = true;
     this.piece.count = 0;
@@ -152,9 +159,9 @@ export class WellView {
     this.beams.renderOrder = 1;
     this.beams.frustumCulled = false;
     this.particles = new Particles(this.dim >= 4 ? 220 : 700);
-    this.group.add(this.blocks, this.piece, this.ghost, this.flash, this.beams, this.particles.points);
+    this.group.add(this.blocks, this.faded, this.piece, this.ghost, this.flash, this.beams, this.particles.points);
     // Colour attribute exists from the start.
-    for (const m of [this.blocks, this.piece, this.ghost, this.flash]) {
+    for (const m of [this.blocks, this.faded, this.piece, this.ghost, this.flash]) {
       m.setColorAt(0, WHITE);
     }
     this.buildDecor(seed);
@@ -330,12 +337,20 @@ export class WellView {
     this.dirty = true;
   }
 
-  onHardDrop(cells, color) {
+  onHardDrop(cells, color, distance = 0) {
     const col = PALETTE[color];
     for (const c of cells) {
       if (!this.owns(c)) continue;
-      const p = this.cellPos(c[0], c[1], this.dim >= 3 ? c[2] : 0);
+      const p = this.cellPos(c[0], c[1], this.dim >= 3 ? c[2] : 0).clone();
       this.particles.puff(p.x, p.y - 0.45, p.z, col);
+      // A short sparkly trail along the way down.
+      const n = Math.min(4, distance);
+      for (let k = 1; k <= n; k++) {
+        this.particles.emit({
+          x: p.x + (Math.random() - 0.5) * 0.5, y: p.y + (k * distance) / n, z: p.z + (Math.random() - 0.5) * 0.5,
+          vy: -1, life: 0.25 + Math.random() * 0.2, size: 0.35, kind: 0, color: col, drag: 4, gravity: 0,
+        });
+      }
     }
   }
 
@@ -456,6 +471,7 @@ export class WellView {
   rebuildBlocks(dt) {
     const grid = this.game.grid;
     let k = 0;
+    let f = 0;
     let still = true;
     for (let z = 0; z < this.Z; z++)
       for (let y = 0; y < this.Y; y++)
@@ -495,16 +511,52 @@ export class WellView {
           tmpP.y -= (1 - sy) * 0.46;
           tmpS.set(sx, sy, sx);
           tmpM.compose(tmpP, tmpQ.identity(), tmpS);
+          if (this.occluders.has(li)) {
+            this.faded.setMatrixAt(f, tmpM);
+            this.faded.setColorAt(f, this.colorOf(v, y));
+            f++;
+            continue;
+          }
           this.blocks.setMatrixAt(k, tmpM);
           this.blocks.setColorAt(k, this.colorOf(v, y));
           k++;
         }
+    this.faded.count = f;
+    this.faded.visible = f > 0;
+    this.faded.instanceMatrix.needsUpdate = true;
+    if (this.faded.instanceColor) this.faded.instanceColor.needsUpdate = true;
     this.blocks.count = k;
     this.blocks.visible = k > 0;
     this.blocks.instanceMatrix.needsUpdate = true;
     if (this.blocks.instanceColor) this.blocks.instanceColor.needsUpdate = true;
     this.animating = !still;
     this.dirty = false;
+  }
+
+  // Marks the blocks that hide the landing spot from the camera (camPos in this well's space).
+  updateOccluders(camPos, targets) {
+    const next = new Set();
+    const grid = this.game.grid;
+    const p = new THREE.Vector3();
+    for (const c of targets) {
+      if (!this.owns(c)) continue;
+      const t = this.cellPos(c[0], c[1], c[2] ?? 0).clone();
+      const d = t.clone().sub(camPos);
+      const len = d.length();
+      d.divideScalar(len);
+      for (let s = 0.5; s < len - 0.75; s += 0.2) {
+        p.copy(camPos).addScaledVector(d, s);
+        const x = Math.floor(p.x + this.X / 2), y = Math.floor(p.y), z = Math.floor(p.z + this.Z / 2);
+        if (x < 0 || y < 0 || z < 0 || x >= this.X || y >= this.Y || z >= this.Z) continue;
+        if (x === c[0] && y === c[1] && z === c[2]) continue;
+        const li = this.local(x, y, z);
+        if (grid[this.globalIndex[li]]) next.add(li);
+      }
+    }
+    if (next.size !== this.occluders.size || [...next].some((i) => !this.occluders.has(i))) {
+      this.occluders = next;
+      this.dirty = true;
+    }
   }
 
   // Draws the active piece, its ghost and the landing beams (pieceCells are absolute grid coords).
