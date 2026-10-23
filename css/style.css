@@ -154,6 +154,16 @@ kbd {
   font-size: 28px;
   color: var(--pink-dark);
 }
+.stat b.hurry {
+  display: inline-block;
+  color: #ff4d6d;
+  animation: hurry 1s ease-in-out infinite;
+}
+@keyframes hurry {
+  50% {
+    transform: scale(1.18);
+  }
+}
 .mode-tag {
   font-size: 14px;
   line-height: 1.35;

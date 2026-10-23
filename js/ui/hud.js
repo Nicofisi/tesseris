@@ -123,7 +123,13 @@ export class Hud {
     set('sScore', g.score.toLocaleString('pl-PL'));
     set('sLevel', String(g.level));
     set('sLines', String(g.lines));
-    set('sTime', fmtTime(this.cfg.gameMode === 'timed' ? g.cfg.timeLimit - g.time : g.time));
+    const left = g.cfg.timeLimit - g.time;
+    set('sTime', fmtTime(this.cfg.gameMode === 'timed' ? Math.ceil(left) : g.time));
+    const hurry = this.cfg.gameMode === 'timed' && left <= 10 && g.state === 'play';
+    if (this.last.hurry !== hurry) {
+      this.last.hurry = hurry;
+      $('sTime').classList.toggle('hurry', hurry);
+    }
     this.holdEl.classList.toggle('used', !g.canHold);
     const slots = [];
     if (g.holdType !== null) {

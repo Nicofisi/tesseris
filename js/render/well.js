@@ -85,10 +85,12 @@ export function createWellShared() {
   const fadedMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, transparent: true, opacity: 0.22, depthWrite: false });
   const wood = new THREE.MeshStandardMaterial({ color: '#c98a5b', roughness: 0.8 });
   const woodActive = new THREE.MeshStandardMaterial({ color: '#ffd27a', roughness: 0.5, emissive: '#ffb347', emissiveIntensity: 0.65 });
+  const woodDanger = new THREE.MeshStandardMaterial({ color: '#ff8a9a', roughness: 0.5, emissive: '#ff3d6e', emissiveIntensity: 0.5 });
   const island = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 });
   const lines = new THREE.LineBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.22, depthWrite: false });
   const flower = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7 });
-  return { blockMat, pieceMat, ghostMat, flashMat, beamMat, fadedMat, wood, woodActive, island, lines, flower };
+  const flowerCenter = new THREE.MeshStandardMaterial({ color: '#ffe066' });
+  return { blockMat, pieceMat, ghostMat, flashMat, beamMat, fadedMat, wood, woodActive, woodDanger, island, lines, flower, flowerCenter };
 }
 
 export class WellView {
@@ -285,7 +287,7 @@ export class WellView {
     const petalGeo = new THREE.SphereGeometry(0.11, 6, 4);
     const count = Math.round((X + Z) * 2.2);
     const flowers = new THREE.InstancedMesh(petalGeo, s.flower, count * 5);
-    const centers = new THREE.InstancedMesh(new THREE.SphereGeometry(0.08, 6, 4), new THREE.MeshStandardMaterial({ color: '#ffe066' }), count);
+    const centers = new THREE.InstancedMesh(new THREE.SphereGeometry(0.08, 6, 4), s.flowerCenter, count);
     const flowerColors = ['#ffffff', '#ffb3d1', '#ffd6a5', '#cdb4ff', '#ff8fab', '#a0e7ff'].map((c) => new THREE.Color(c));
     let fi = 0;
     for (let i = 0; i < count; i++) {
@@ -322,9 +324,15 @@ export class WellView {
   }
 
   setActive(on) {
-    if (on === this.active) return;
     this.active = on;
-    this.frame.material = on ? this.shared.woodActive : this.shared.wood;
+    this.updateFrame();
+  }
+
+  updateFrame() {
+    const s = this.shared;
+    // Danger (stack close to the rim) pulses between red and the normal look.
+    const pulse = this.danger && Math.sin(performance.now() / 180) > -0.2;
+    this.frame.material = pulse ? s.woodDanger : this.active ? s.woodActive : s.wood;
   }
 
   // ---- events ----
@@ -472,6 +480,7 @@ export class WellView {
     const grid = this.game.grid;
     let k = 0;
     let f = 0;
+    let top = -1;
     let still = true;
     for (let z = 0; z < this.Z; z++)
       for (let y = 0; y < this.Y; y++)
@@ -484,6 +493,7 @@ export class WellView {
             this.pulse[li] = 9;
             continue;
           }
+          if (y > top) top = y;
           let off = this.offset[li];
           if (off !== 0 && this.hang <= 0) {
             this.offVel[li] -= 55 * dt;
@@ -521,6 +531,7 @@ export class WellView {
           this.blocks.setColorAt(k, this.colorOf(v, y));
           k++;
         }
+    this.danger = top >= this.H - 3 && !this.debris;
     this.faded.count = f;
     this.faded.visible = f > 0;
     this.faded.instanceMatrix.needsUpdate = true;
@@ -631,6 +642,7 @@ export class WellView {
   }
 
   dispose() {
+    this.particles.material.dispose();
     this.group.traverse((o) => {
       if (o.geometry && o.geometry !== blockGeometry()) o.geometry.dispose?.();
     });

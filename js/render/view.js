@@ -5,7 +5,6 @@ import { Environment } from './env.js';
 import { WellView, createWellShared } from './well.js';
 import { PALETTE, blockGeometry } from './assets.js';
 
-const AY = 1;
 
 export class GameView {
   constructor(container) {
@@ -114,7 +113,12 @@ export class GameView {
     this.key.target.position.set(0, (b.max.y + b.min.y) / 2, 0);
     this.key.position.set(r * 0.35, r * 3.2, r * 0.9).add(this.key.target.position);
     this.fill.position.set(-r, r, -r);
-    this.renderer.shadowMap.enabled = this.wells.length <= 16 && this.shadowsAllowed !== false;
+    const shadows = this.wells.length <= 16 && this.shadowsAllowed !== false;
+    if (shadows !== this.renderer.shadowMap.enabled) {
+      this.renderer.shadowMap.enabled = shadows;
+      for (const m of Object.values(this.shared)) if (m?.isMaterial) m.needsUpdate = true;
+      for (const m of this.shared.floors?.values() ?? []) m.needsUpdate = true;
+    }
     this.layout();
   }
 

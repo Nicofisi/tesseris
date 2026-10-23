@@ -27,6 +27,10 @@ Do wyboru maraton (do przegranej) albo gra na czas (3 minuty, dobra do rywalizac
 
 Na telefonie i tablecie pojawiają się przyciski na ekranie, a przeciąganie po planszy obraca kamerę.
 
+Pad (np. podpięty do laptopa przy telewizorze): d-pad albo lewa gałka to ruch, prawa gałka przechyla klocek, `LB` `RB` obracają, `A` zrzuca, `B` przyspiesza, `X` to schowek, trzymany `LT` przenosi ruchy i obroty między studnie (4D, 5D), `RT` obraca kamerę, `Start` to pauza (a w menu start gry). W 2D: `A` `B` obroty, `LB` `RB` schowek, d-pad w górę zrzuca.
+
+W 3D i wyżej leżące klocki mają kolor zależny od wysokości (jak mapa poziomic), więc od razu widać, która warstwa jest prawie pełna; w Ustawieniach można wrócić do kolorów klocków. Klocki zasłaniające miejsce lądowania robią się półprzezroczyste.
+
 ## Uruchomienie lokalnie
 
 Statyczna strona bez budowania (three.js z CDN):
