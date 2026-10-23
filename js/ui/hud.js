@@ -5,7 +5,7 @@ const $ = (id) => document.getElementById(id);
 
 const LEGEND = {
   2: [
-    ['← →', 'ruch'], ['↑ X', 'obrót'], ['Z', 'obrót w lewo'], ['↓', 'w dół'], ['Spacja', 'zrzut'], ['C', 'schowek'], ['Esc', 'pauza'],
+    ['← →', 'ruch'], ['↑ X', 'obrót'], ['Z', 'obrót w lewo'], ['↓', 'w dół'], ['Spacja', 'zrzut'], ['C', 'schowek'], ['M', 'muzyka'], ['Esc', 'pauza'],
   ],
   3: [
     ['← ↑ ↓ →', 'ruch'], ['Q E', 'obrót'], ['W S', 'przechył przód/tył'], ['A D', 'przechył na boki'],
