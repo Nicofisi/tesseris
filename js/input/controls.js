@@ -95,12 +95,16 @@ export class Controls {
     const arr = this.dim === 2 ? 0.04 : 0.09;
     h.t += dt;
     while (h.t >= das + h.fired * arr) {
+      if (!this.perform(h.action, h.hyper, true)) {
+        // Blocked: keep trying every frame, without saving up a burst of moves for later.
+        h.fired = Math.max(h.fired, Math.floor((h.t - das) / arr));
+        break;
+      }
       h.fired++;
-      if (!this.perform(h.action, h.hyper)) break;
     }
   }
 
-  perform(action, hyper) {
+  perform(action, hyper, repeat = false) {
     const app = this.app;
     const g = app.game;
     if (!g || !app.isPlaying()) return false;
@@ -110,17 +114,17 @@ export class Controls {
     const { right: R, fwd: F } = view.screenAxes();
     switch (action) {
       case 'left':
-        return hyp ? g.move(AW, -1) : g.move(R.axis, -R.sign);
+        return hyp ? g.move(AW, -1, repeat) : g.move(R.axis, -R.sign, repeat);
       case 'right':
-        return hyp ? g.move(AW, 1) : g.move(R.axis, R.sign);
+        return hyp ? g.move(AW, 1, repeat) : g.move(R.axis, R.sign, repeat);
       case 'up':
         if (dim === 2) return g.rotate(AX, AY, -1);
-        if (hyp) return dim === 5 ? g.move(AV, -1) : false;
-        return g.move(F.axis, F.sign);
+        if (hyp) return dim === 5 ? g.move(AV, -1, repeat) : false;
+        return g.move(F.axis, F.sign, repeat);
       case 'down':
         if (dim === 2) return false;
-        if (hyp) return dim === 5 ? g.move(AV, 1) : false;
-        return g.move(F.axis, -F.sign);
+        if (hyp) return dim === 5 ? g.move(AV, 1, repeat) : false;
+        return g.move(F.axis, -F.sign, repeat);
       case 'cw':
         return g.rotate(AX, AY, -1);
       case 'ccw':

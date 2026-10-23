@@ -256,10 +256,11 @@ export class Game {
   }
 
   // ---- player actions ----
-  move(axis, dir) {
+  // quiet: an auto-repeat step, which doesn't report bumping into a wall again and again.
+  move(axis, dir, quiet = false) {
     if (this.state !== 'play' || !this.piece || axis === AY) return false;
     if (!this.tryShift(axis, dir)) {
-      this.events.push({ type: 'bump', axis, dir });
+      if (!quiet) this.events.push({ type: 'bump', axis, dir });
       return false;
     }
     this.lastMoveRotate = false;
