@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#ffb3cf" />
+    <title>Tesseris · tetris w 2, 3, 4 i 5 wymiarach</title>
+    <meta name="description" content="Przytulny tetris na imprezę: klasyczne 2D, studnia 3D, a dla odważnych 4D i 5D. Lokalny ranking graczy." />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='6' y='6' width='24' height='24' rx='7' fill='%23ff6f91'/%3E%3Crect x='34' y='6' width='24' height='24' rx='7' fill='%23ffd166'/%3E%3Crect x='34' y='34' width='24' height='24' rx='7' fill='%234fd8ee'/%3E%3Crect x='6' y='34' width='24' height='24' rx='7' fill='%23b28dff'/%3E%3C/svg%3E" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/style.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="app">
+      <div id="stage"></div>
+      <div id="frames"></div>
+      <div id="hud" hidden>
+        <aside class="panel side left">
+          <div class="box">
+            <div class="label">Schowek <kbd class="k-hold">C</kbd></div>
+            <div class="slot hold" id="holdSlot"></div>
+          </div>
+          <div class="box stats">
+            <div class="stat"><span class="label">Wynik</span><b id="sScore">0</b></div>
+            <div class="stat"><span class="label">Poziom</span><b id="sLevel">1</b></div>
+            <div class="stat"><span class="label" id="sLinesLabel">Linie</span><b id="sLines">0</b></div>
+            <div class="stat"><span class="label" id="sTimeLabel">Czas</span><b id="sTime">0:00</b></div>
+          </div>
+          <div class="box mode-tag" id="modeTag"></div>
+        </aside>
+        <div id="board"></div>
+        <aside class="panel side right">
+          <div class="box">
+            <div class="label">Następne</div>
+            <div id="nextSlots"></div>
+          </div>
+          <button class="btn ghost small" id="btnPause" title="Pauza (Esc)">Pauza</button>
+        </aside>
+        <div id="legend"></div>
+      </div>
+      <canvas id="previews"></canvas>
+      <div id="popups"></div>
+      <div id="touch" hidden></div>
+      <div id="screens"></div>
+      <div id="loading">Ładowanie…</div>
+    </div>
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>
