@@ -9,7 +9,7 @@ const LEGEND = {
   ],
   3: [
     ['← ↑ ↓ →', 'ruch'], ['Q E', 'obrót'], ['W S', 'przechył przód/tył'], ['A D', 'przechył na boki'],
-    ['Spacja', 'zrzut'], ['F', 'w dół'], ['C', 'schowek'], ['Z X', 'kamera'], ['V', 'z góry'], ['Esc', 'pauza'],
+    ['Spacja', 'zrzut'], ['F', 'w dół'], ['C', 'schowek'], ['Z X', 'kamera'], ['V', 'z góry'], ['M', 'muzyka'], ['Esc', 'pauza'],
   ],
 };
 LEGEND[4] = [

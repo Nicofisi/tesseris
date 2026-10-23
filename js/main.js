@@ -36,6 +36,24 @@ class App {
     window.addEventListener('keydown', unlock);
     document.addEventListener('visibilitychange', () => {
       if (document.hidden && this.state === 'playing') this.pause();
+      // No music from a background tab.
+      try {
+        if (document.hidden) this.sound.ctx?.suspend();
+        else this.sound.ctx?.resume();
+      } catch {
+        /* audio is optional */
+      }
+    });
+    // M mutes and unmutes the music anywhere (except while typing a name).
+    window.addEventListener('keydown', (e) => {
+      if (e.code !== 'KeyM' || e.target.tagName === 'INPUT' || e.repeat) return;
+      if (this.settings.music > 0) {
+        this.settings.musicBefore = this.settings.music;
+        this.settings.music = 0;
+      } else this.settings.music = this.settings.musicBefore || 0.6;
+      this.sound.setVolumes(this.settings);
+      this.saveSettings();
+      if (this.game && this.state === 'playing') this.hud.toast(this.settings.music > 0 ? 'Muzyka włączona' : 'Muzyka wyłączona');
     });
     this.toMenu();
     document.getElementById('loading').hidden = true;
